@@ -63,19 +63,21 @@ function leastsquares(X::Array{T,2}, solver=NormalEquations) where T <: Real
     x = vec(X[:,1])
     y = vec(X[:,2])
 
-    A = hcat(x .^ 2, x .* y, y .^ 2, x, y)
+    M = hcat(x .^ 2, x .* y, y .^ 2, x, y)
     b = ones(N)
 
     if typeof(solver) == NormalEquations
         # minimise ||Ax - b||_2
-        coeffs = A \ b
+        coeffs = M \ b
+        # Make A positive
+        coeffs, F = coeffs[1] > 0 ? (coeffs, -b[1]) : (-coeffs, b[1])
 
         A = coeffs[1]
         B = coeffs[2]
         C = coeffs[3]
         D = coeffs[4]
         E = coeffs[5]
-        F = -b[1] # F = -1
+        # F = -b[1] # F = -1
 
         return A, B, C, D, E, F
     elseif typeof(solver) == GradientDescent
