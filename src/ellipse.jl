@@ -62,85 +62,85 @@ end
 
 function quad2conic(qform::QuadraticFormEllipse)
     #= Helper for converting quadratic form ellipse into a standard conic form
-     
+
     Given an ellipse as a quadratic form
- 
+
             (x - c)^T S (x - c) = 1
- 
-    convert it to the conic section form 
- 
+
+    convert it to the conic section form
+
         A * x^2 + B * x * y + C * y^2 + D * x + E * y + F = 0
- 
+
     Args :
         qform : quadratic form ellipse to be converted to conic form
 
     Returns :
         ellipse in conic form
-         
-    =# 
+
+    =#
 
     S = qform.S
     center = qform.center
- 
+
     A = S[1,1]
     B = (S[1,2] + S[2,1])
     C = S[2,2]
- 
+
     b = -2 * center' * S;
     D = b[1]
     E = b[2]
     F = center' * S * center - 1
- 
+
     return ConicFormEllipse(A, B, C, D, E, F)
 end
 
 function quad2parametric(qform::QuadraticFormEllipse)
     #= Helper for converting from quadratic form to parameteric form of ellipse
- 
-    Given an ellipse as a quadratic form 
- 
+
+    Given an ellipse as a quadratic form
+
             (x - c)^T S (x - c) = 1
- 
+
     convert it to the parametric form
- 
+
             [x_c y_c] + rotation_mat(ccw_angle) * [a*cos(theta) b*sin(theta)]
- 
+
     Args :
-        qform : quadratic form ellipse to be converted to conic form 
- 
+        qform : quadratic form ellipse to be converted to conic form
+
     Returns :
         parametric form ellipse
     =#
- 
+
     f = eigen(qform.S)
     V = f.vectors
-    D = f.values                
- 
+    D = f.values
+
     semiaxis_lengths = sqrt.(elementwise_pseudoinvert(D))
     p = sortperm(semiaxis_lengths, rev=true)
     sorted_semiaxes = semiaxis_lengths[p]
     sorted_eig_vecs = V[:,p]
     major_axis = sorted_eig_vecs[:,1]
     ccw_angle = atan(major_axis[2], major_axis[1])
- 
+
     return ParametricFormEllipse(sorted_semiaxes, qform.center, ccw_angle)
 end
 
 function conic2quad(cform::ConicFormEllipse)
     #= Helper for converting conic form ellipse into a standard quadratic form
-    
+
     Given an ellipse as a conic section of the form
 
         A * x^2 + B * x * y + C * y^2 + D * x + E * y + F = 0
 
-    convert it to the form 
+    convert it to the form
 
         (x - c)^T S (x - c) = 1
 
     This is done by completing the square leading to the following equivalence
             x^T * Q * x + b^T * x + c = 0
         =>  (x + 0.5 * inv(Q) * b)^T Q (x + 0.5 * inv(Q) * b)) + c - 0.25 * b^T * inv(Q) * b = 0
-    
+
     Args :
 
     Returns :
@@ -178,7 +178,7 @@ function conic2parametric(cform::ConicFormEllipse)
             [x_c y_c] + rot_mat2d(ccw_angle) * [a*cos(theta) b*sin(theta)]
 
     Args :
-        
+
 
     Returns :
         semiaxis_lengths : array of the form [a b] where a is half the length
@@ -186,11 +186,28 @@ function conic2parametric(cform::ConicFormEllipse)
                            is half the length along the y-axis (before rotation)
         center : array of the x and y coordinates of the center of the ellipse
         ccw_angle : The counter clockwise angle (in rad) to rotate the ellipse wrt
-                    the positive x-axis           
+                    the positive x-axis
     =#
-
-    qform = conic2quad(cform)
-    return quad2parametric(qform)
+    # cform = ellipse.conicform
+    A = cform.A
+    B = cform.B
+    C = cform.C
+    D = cform.D
+    E = cform.E
+    F = cform.F
+    t1 = 2 * (A*E^2 + C*D^2 - B*D*E + (B^2-4*A*C)*F)
+    t2 = sqrt((A-C)^2 + B^2)
+    t3 = B^2 - 4 * A * C
+    a = -sqrt(t1 * ((A + C) + t2))/t3
+    b = -sqrt(t1 * ((A+C) - t2)) / t3
+    xc = (2 * C * D - B * E) / t3
+    yc = (2 * A * E - B * D) / t3
+    if B!=0
+        θ = atan((C-A-sqrt((A-C)^2+B^2))/B)
+    else
+        θ = A < C ? 0 : π/2
+    end
+    return EllipseFit.ParametricFormEllipse([a,b],[xc,yc],θ)
 end
 
 function parametric2quad(pform::ParametricFormEllipse)
@@ -205,9 +222,9 @@ function parametric2quad(pform::ParametricFormEllipse)
         (x - c)^T S (x - c) = 1
 
     Args :
-        
+
     Returns :
-       
+
     =#
 
     sqrtD = diagm(0 => vec(pform.semiaxis_lengths))
@@ -230,15 +247,15 @@ function parametric2conic(pform::ParametricFormEllipse)
             A * x^2 + B * x * y + C * y^2 + D * x + E * y + F = 0
 
     Args :
-        
+
 
     Returns :
-              
+
     =#
 
     qform = parametric2quad(pform)
     return quad2conic(qform)
-end 
+end
 
 struct Ellipse
     quadform::QuadraticFormEllipse
